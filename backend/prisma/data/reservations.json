@@ -1,0 +1,32 @@
+{
+  "reservations" : 
+  [
+    {
+      "id": 18726,
+      "vehicleId": "tesla_1001",
+      "startDateTime": "2023-10-18T09:00:00Z",
+      "endDateTime": "2023-10-18T09:45:00Z",
+      "customerName": "John Smith",
+      "customerEmail": "John@Smith.com",
+      "customerPhone": "+353851234567"
+    },
+    {
+      "id": 18727,
+      "vehicleId": "tesla_1001",
+      "startDateTime": "2023-10-18T11:30:00Z",
+      "endDateTime": "2023-10-18T12:15:00Z",
+      "customerName": "Jill Jones",
+      "customerEmail": "Jill@Jones.com",
+      "customerPhone": "+353879876543"
+    },
+    {
+      "id": 18728,
+      "vehicleId": "tesla_1001",
+      "startDateTime": "2023-10-18T14:45:00Z",
+      "endDateTime": "2023-10-18T15:30:00Z",
+      "customerName": "Jack Brown",
+      "customerEmail": "Jack@Brown.com",
+      "customerPhone": "+353891234567"
+    }
+  ]
+}

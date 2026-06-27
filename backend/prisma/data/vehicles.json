@@ -1,0 +1,77 @@
+{
+  "vehicles" : 
+  [
+    {
+      "id": "tesla_1001",
+      "type": "tesla_model3",
+      "location": "dublin",
+      "availableFromTime": "08:00:00",
+      "availableToTime": "18:00:00",
+      "availableDays": ["mon","tue","wed","thur","fri"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1002",
+      "type": "tesla_modelx",
+      "location": "dublin",
+      "availableFromTime": "10:00:00",
+      "availableToTime": "20:00:00",
+      "availableDays": ["mon","tue","wed","thur","fri","sat"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1003",
+      "type": "tesla_modely",
+      "location": "dublin",
+      "availableFromTime": "10:00:00",
+      "availableToTime": "16:00:00",
+      "availableDays": ["fri","sat","sun"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1007",
+      "type": "tesla_model3",
+      "location": "dublin",
+      "availableFromTime": "08:00:00",
+      "availableToTime": "18:00:00",
+      "availableDays": ["mon","tue","wed","thur","fri"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1008",
+      "type": "tesla_model3",
+      "location": "dublin",
+      "availableFromTime": "08:00:00",
+      "availableToTime": "18:00:00",
+      "availableDays": ["mon","tue","wed","thur","fri"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1004",
+      "type": "tesla_model3",
+      "location": "cork",
+      "availableFromTime": "08:00:00",
+      "availableToTime": "18:00:00",
+      "availableDays": ["mon","tue","wed","thur","fri"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1005",
+      "type": "tesla_modelx",
+      "location": "cork",
+      "availableFromTime": "10:00:00",
+      "availableToTime": "20:00:00",
+      "availableDays": ["mon","tue","wed","thur","fri","sat"],
+      "minimumMinutesBetweenBookings": 15
+    },
+    {
+      "id": "tesla_1006",
+      "type": "tesla_modely",
+      "location": "cork",
+      "availableFromTime": "10:00:00",
+      "availableToTime": "16:00:00",
+      "availableDays": ["fri","sat","sun"],
+      "minimumMinutesBetweenBookings": 15
+    }
+  ]
+}
