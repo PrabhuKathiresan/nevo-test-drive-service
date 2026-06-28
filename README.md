@@ -25,6 +25,7 @@ Installs Docker if needed, then starts the full stack — PostgreSQL, API, and f
 | [Low-Level Design](docs/lld.md) | Detailed request flow diagrams for each endpoint |
 | [API Contracts](docs/api-contracts.md) | Request/response shapes, error codes, constraints |
 | [Design Decisions](docs/decisions.md) | Key technology and approach decisions with rationale |
+| [Load Test Results](backend/load-tests/load-test.md) | k6 load test results — throughput, latency, and concurrency race |
 
 ## Tech Stack
 
