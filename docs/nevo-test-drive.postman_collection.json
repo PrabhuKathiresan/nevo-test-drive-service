@@ -1,0 +1,248 @@
+{
+  "info": {
+    "name": "Nevo Test Drive Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "futureDate1",
+      "value": "2026-07-07T10:00:00Z",
+      "type": "string"
+    },
+    {
+      "key": "futureDate2",
+      "value": "2026-07-08T09:00:00Z",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health",
+            "description": "Verify the API is running."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Availability",
+      "item": [
+        {
+          "name": "Check availability — available slot",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"dublin\",\n  \"vehicleType\": \"tesla_model3\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45\n}"
+            },
+            "description": "Expects available: true and a vehicleId."
+          }
+        },
+        {
+          "name": "Check availability — wrong vehicle type",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"dublin\",\n  \"vehicleType\": \"unknown_model\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45\n}"
+            },
+            "description": "Expects available: false — no vehicles of this type."
+          }
+        },
+        {
+          "name": "Check availability — wrong location",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"galway\",\n  \"vehicleType\": \"tesla_model3\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45\n}"
+            },
+            "description": "Expects available: false — no vehicles at this location."
+          }
+        },
+        {
+          "name": "Check availability — outside operating hours",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"dublin\",\n  \"vehicleType\": \"tesla_model3\",\n  \"startDateTime\": \"2026-07-07T06:00:00Z\",\n  \"durationMins\": 45\n}"
+            },
+            "description": "Expects available: false — tesla_model3 in dublin starts at 08:00 UTC."
+          }
+        },
+        {
+          "name": "Check availability — validation error (missing field)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"dublin\",\n  \"vehicleType\": \"tesla_model3\"\n}"
+            },
+            "description": "Expects 400 VALIDATION_ERROR — missing startDateTime and durationMins."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create booking — success",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"tesla_1001\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45,\n  \"customerName\": \"Jane Doe\",\n  \"customerEmail\": \"jane@doe.com\",\n  \"customerPhone\": \"+353851234567\"\n}"
+            },
+            "description": "Creates a booking. Returns bookingId on success (201)."
+          }
+        },
+        {
+          "name": "Create booking — same slot (expect 409)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"tesla_1001\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45,\n  \"customerName\": \"John Smith\",\n  \"customerEmail\": \"john@smith.com\",\n  \"customerPhone\": \"+353859876543\"\n}"
+            },
+            "description": "Run after 'Create booking — success'. Expects 409 SLOT_UNAVAILABLE."
+          }
+        },
+        {
+          "name": "Create booking — within buffer (expect 409)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"tesla_1001\",\n  \"startDateTime\": \"2026-07-07T10:50:00Z\",\n  \"durationMins\": 45,\n  \"customerName\": \"Jack Brown\",\n  \"customerEmail\": \"jack@brown.com\",\n  \"customerPhone\": \"+353851111222\"\n}"
+            },
+            "description": "Run after 'Create booking — success'. Slot at 10:50 is within 15-min buffer of 10:00–10:45 booking. Expects 409."
+          }
+        },
+        {
+          "name": "Create booking — after buffer (expect success)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"tesla_1001\",\n  \"startDateTime\": \"2026-07-07T11:00:00Z\",\n  \"durationMins\": 45,\n  \"customerName\": \"Jack Brown\",\n  \"customerEmail\": \"jack@brown.com\",\n  \"customerPhone\": \"+353851111222\"\n}"
+            },
+            "description": "11:00 is exactly 15 mins after the 10:00–10:45 booking ends. Expects 201."
+          }
+        },
+        {
+          "name": "Create booking — vehicle not found (expect 404)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"does_not_exist\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45,\n  \"customerName\": \"Jane Doe\",\n  \"customerEmail\": \"jane@doe.com\",\n  \"customerPhone\": \"+353851234567\"\n}"
+            },
+            "description": "Expects 404 VEHICLE_NOT_FOUND."
+          }
+        },
+        {
+          "name": "Create booking — validation error (invalid email)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"tesla_1001\",\n  \"startDateTime\": \"{{futureDate1}}\",\n  \"durationMins\": 45,\n  \"customerName\": \"Jane Doe\",\n  \"customerEmail\": \"not-an-email\",\n  \"customerPhone\": \"+353851234567\"\n}"
+            },
+            "description": "Expects 400 VALIDATION_ERROR."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Even Distribution",
+      "item": [
+        {
+          "name": "1. Check availability — expect tesla_1007 (least booked)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"dublin\",\n  \"vehicleType\": \"tesla_model3\",\n  \"startDateTime\": \"{{futureDate2}}\",\n  \"durationMins\": 45\n}"
+            },
+            "description": "Dublin has 3 tesla_model3 vehicles. tesla_1001 has 3 existing reservations from seed data; tesla_1007 and tesla_1008 have 0. Expects tesla_1007 (fewest bookings, lowest ID among tied vehicles)."
+          }
+        },
+        {
+          "name": "2. Book tesla_1007",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/bookings",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicleId\": \"tesla_1007\",\n  \"startDateTime\": \"{{futureDate2}}\",\n  \"durationMins\": 45,\n  \"customerName\": \"Alice\",\n  \"customerEmail\": \"alice@example.com\",\n  \"customerPhone\": \"+353851234567\"\n}"
+            },
+            "description": "Books tesla_1007. Now tesla_1007 has 1 booking, tesla_1008 still has 0."
+          }
+        },
+        {
+          "name": "3. Check availability — expect tesla_1008 (now least booked)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/availability",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"dublin\",\n  \"vehicleType\": \"tesla_model3\",\n  \"startDateTime\": \"{{futureDate2}}\",\n  \"durationMins\": 45\n}"
+            },
+            "description": "After booking tesla_1007, tesla_1008 now has the fewest bookings (0). Expects vehicleId: tesla_1008."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unknown Route",
+      "item": [
+        {
+          "name": "Unknown route (expect 404)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/unknown",
+            "description": "Expects 404 NOT_FOUND."
+          }
+        }
+      ]
+    }
+  ]
+}
