@@ -14,7 +14,7 @@ The booking domain is transactional by nature. A slot must belong to exactly one
 
 My first instinct was `SELECT FOR UPDATE` but I rejected it quickly. Row-level locks block waiting transactions while each holds a connection. Under concurrent load this exhausts the connection pool and causes unrelated requests to time out. `pg_try_advisory_xact_lock` is non-blocking - the first caller wins, all others get an immediate rejection. The lock is scoped to the transaction and releases automatically on commit or rollback.
 
-One subtlety: `pg_try_advisory_xact_lock` takes an integer, not a string. I used `hashtext(vehicleId)` to convert the vehicle ID to a lock key. The risk is hash collisions - two different vehicle IDs could hash to the same integer. For production I would use numeric vehicle IDs or the two-argument form to reduce collision space.
+One subtlety: `pg_try_advisory_xact_lock` takes an integer, not a string. I used `hashtext(vehicleId)` initially, but this has two problems: hash collisions (two different vehicle IDs mapping to the same key) and over-serialisation (two requests for the same vehicle at completely different times would unnecessarily block each other). I switched to the two-argument form - `pg_try_advisory_xact_lock(hashtext(vehicleId), hashtext(startDateTime))` - which scopes the lock to vehicle + exact slot. Non-conflicting slots on the same vehicle now proceed concurrently; only requests racing for the identical slot compete.
 
 **Least-booked vehicle for even distribution**
 
@@ -31,6 +31,11 @@ The availability response is advisory - a slot can be taken between the availabi
 The scope is two endpoints and one domain. Microservices would add network hops, service discovery, and deployment complexity with no benefit at this scale. The layered structure (controller → service → repository) keeps concerns separated without the overhead.
 
 ## What I Would Do Differently
+
+**Backend vehicle assignment from day one**
+
+I initially implemented the availability endpoint returning a `vehicleId` which the frontend passed back in the booking request — following the assignment spec literally. The problem is this exposes internal vehicle inventory to the client and allows the distribution algorithm to be bypassed entirely. I refactored to remove `vehicleId` from both the availability response and the booking request: the booking endpoint now accepts `vehicleType` and `location`, and picks the vehicle internally inside the same transaction that creates the booking. I would design it this way from the start in a real project.
+
 
 **Idempotency keys on the booking endpoint**
 
