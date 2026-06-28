@@ -12,8 +12,6 @@ const PORT = process.env.PORT ?? 3000;
 app.use(cors());
 app.use(express.json());
 
-console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
-
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.post('/api/v1/availability', availabilityController);
