@@ -32,11 +32,11 @@
 
 **Reason:** Random assignment doesn't guarantee convergence. Round-robin requires persisted state and breaks under concurrent requests. Least-booked (scoped to today) is deterministic, stateless (derived from the DB), and self-correcting day-over-day.
 
-**Why today's count over all-time:** All-time count permanently penalises vehicles with a long history. A new vehicle added to the fleet would be preferred for weeks until its count catches up — the opposite imbalance. Scoping to today bounds the correction window to 24 hours.
+**Why today's count over all-time:** All-time count permanently penalises vehicles with a long history. A new vehicle added to the fleet would be preferred for weeks until its count catches up - the opposite imbalance. Scoping to today bounds the correction window to 24 hours.
 
-**Known weakness — mid-day vehicle addition:** If a vehicle C is added mid-day while A has 50 bookings and B has 40, C's count is 0 and it receives every remaining booking for the day — A and B sit idle. This self-corrects the next day when all counts reset.
+**Known weakness - mid-day vehicle addition:** If a vehicle C is added mid-day while A has 50 bookings and B has 40, C's count is 0 and it receives every remaining booking for the day - A and B sit idle. This self-corrects the next day when all counts reset.
 
-**Production fix:** Initialise a new vehicle's effective count to the current fleet average for today using a `bookingCountOffset` field. The distribution algorithm uses `_count.bookings + offset` instead of raw count. C would start at 45 (average of A and B) and compete fairly immediately. For this assignment the edge case is acceptable — vehicles are typically added to a dealership's fleet before the day starts, not mid-day.
+**Production fix:** Initialise a new vehicle's effective count to the current fleet average for today using a `bookingCountOffset` field. The distribution algorithm uses `_count.bookings + offset` instead of raw count. C would start at 45 (average of A and B) and compete fairly immediately. For this assignment the edge case is acceptable - vehicles are typically added to a dealership's fleet before the day starts, not mid-day.
 
 ---
 
@@ -66,11 +66,21 @@ The only deliberate AP trade-off is the two-step flow itself (check then book) -
 
 **Decision:** The availability endpoint returns a `vehicleId` which the frontend passes back in the booking request, as specified in the assignment.
 
-**Trade-off:** This exposes internal vehicle inventory to the frontend and allows a client to bypass the availability endpoint entirely, booking any known `vehicleId` directly — circumventing the even distribution algorithm.
+**Trade-off:** This exposes internal vehicle inventory to the frontend and allows a client to bypass the availability endpoint entirely, booking any known `vehicleId` directly - circumventing the even distribution algorithm.
 
-**The production-correct approach** would be to remove `vehicleId` from both the availability response and the booking request. The booking endpoint would instead accept `vehicleType`, `location`, `startDateTime`, and `durationMins` alongside customer details, and pick the vehicle internally using the distribution algorithm inside the same transaction that creates the booking. This makes vehicle assignment entirely server-controlled — inventory is never exposed and distribution cannot be bypassed.
+**The production-correct approach** would be to remove `vehicleId` from both the availability response and the booking request. The booking endpoint would instead accept `vehicleType`, `location`, `startDateTime`, and `durationMins` alongside customer details, and pick the vehicle internally using the distribution algorithm inside the same transaction that creates the booking. This makes vehicle assignment entirely server-controlled - inventory is never exposed and distribution cannot be bypassed.
 
 The current implementation mitigates the correctness risk: the booking service re-validates all business rules inside the advisory lock transaction with fresh data, so no double-booking is possible regardless of how the `vehicleId` was obtained. Distribution bypass remains a theoretical concern at this scope.
+
+---
+
+## Customer Data - Denormalised on Booking Table
+
+**Decision:** Store `customerName`, `customerEmail`, and `customerPhone` directly on the `bookings` table rather than in a separate `customers` table.
+
+**Reason:** The requirements have no concept of customer accounts, authentication, or booking history. Each test drive booking is a one-off transaction - there is no need to deduplicate customers or look up all bookings by a given person. A denormalised model is simpler to implement and query for this scope.
+
+**Production evolution:** Extract a `customers` table with a FK from `bookings.customerId`. This enables booking history per customer, targeted notifications, and a customer portal with minimal schema migration cost. The three columns become a single FK - a straightforward change when accounts are introduced.
 
 ---
 
