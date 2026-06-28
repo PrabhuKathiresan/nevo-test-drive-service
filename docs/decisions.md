@@ -28,9 +28,15 @@
 
 ## Distribution Algorithm - Least-Booked Vehicle
 
-**Decision:** Among eligible vehicles, select the one with the fewest all-time bookings. Break ties by vehicle ID ascending.
+**Decision:** Among eligible vehicles, select the one with the fewest bookings *today*. Break ties by vehicle ID ascending.
 
-**Reason:** Random assignment doesn't guarantee convergence. Round-robin requires persisted state and breaks under concurrent requests. Least-booked is deterministic, stateless (derived from the DB), and self-correcting - if one vehicle accumulates more bookings, it will be deprioritised automatically.
+**Reason:** Random assignment doesn't guarantee convergence. Round-robin requires persisted state and breaks under concurrent requests. Least-booked (scoped to today) is deterministic, stateless (derived from the DB), and self-correcting day-over-day.
+
+**Why today's count over all-time:** All-time count permanently penalises vehicles with a long history. A new vehicle added to the fleet would be preferred for weeks until its count catches up — the opposite imbalance. Scoping to today bounds the correction window to 24 hours.
+
+**Known weakness — mid-day vehicle addition:** If a vehicle C is added mid-day while A has 50 bookings and B has 40, C's count is 0 and it receives every remaining booking for the day — A and B sit idle. This self-corrects the next day when all counts reset.
+
+**Production fix:** Initialise a new vehicle's effective count to the current fleet average for today using a `bookingCountOffset` field. The distribution algorithm uses `_count.bookings + offset` instead of raw count. C would start at 45 (average of A and B) and compete fairly immediately. For this assignment the edge case is acceptable — vehicles are typically added to a dealership's fleet before the day starts, not mid-day.
 
 ---
 
