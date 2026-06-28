@@ -14,7 +14,6 @@ export interface AvailabilityRequest {
 
 export interface AvailabilityResult {
   available: boolean;
-  vehicleId: string | null;
 }
 
 export async function checkAvailability(req: AvailabilityRequest): Promise<AvailabilityResult> {
@@ -29,18 +28,5 @@ export async function checkAvailability(req: AvailabilityRequest): Promise<Avail
 
   const eligible = vehicles.filter((v) => isVehicleAvailable(v, req.startDateTime, endDateTime));
 
-  if (eligible.length === 0) {
-    return { available: false, vehicleId: null };
-  }
-
-  const selected = selectLeastBooked(eligible);
-  return { available: true, vehicleId: selected.id };
-}
-
-function selectLeastBooked<T extends { id: string; _count: { bookings: number } }>(vehicles: T[]): T {
-  return vehicles.reduce((best, v) => {
-    if (v._count.bookings < best._count.bookings) return v;
-    if (v._count.bookings === best._count.bookings && v.id < best.id) return v;
-    return best;
-  });
+  return { available: eligible.length > 0 };
 }

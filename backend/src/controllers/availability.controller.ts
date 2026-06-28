@@ -7,11 +7,11 @@ const schema = z.object({
   location: z.string().min(1),
   vehicleType: z.string().min(1),
   startDateTime: startDateTimeSchema,
-  durationMins: durationMinsSchema,
+  durationMins: z.coerce.number().pipe(durationMinsSchema),
 });
 
 export async function availabilityController(req: Request, res: Response) {
-  const parsed = schema.safeParse(req.body);
+  const parsed = schema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: firstValidationError(parsed.error.errors) } });
   }

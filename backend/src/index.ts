@@ -17,7 +17,7 @@ app.use(pinoHttp({ logger }));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.post('/api/v1/availability', availabilityController);
+app.get('/api/v1/availability', availabilityController);
 app.post('/api/v1/bookings', bookingController);
 
 app.use((_req: express.Request, res: express.Response) => {

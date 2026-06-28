@@ -1,5 +1,5 @@
 import { scheduleBooking, SlotUnavailableError } from '../services/booking.service';
-import { cleanupTestData, makeDate, prisma, seedTestVehicles, TEST_VEHICLE_IDS } from './helpers';
+import { cleanupTestData, makeBooking, makeDate, prisma, seedTestVehicles, TEST_VEHICLE_IDS } from './helpers';
 
 beforeAll(async () => {
   await cleanupTestData();
@@ -16,7 +16,8 @@ afterEach(async () => {
 });
 
 const BASE = {
-  vehicleId: 'test_v1',
+  vehicleType: 'test_model',
+  location: 'test_city',
   startDateTime: makeDate(10),
   durationMins: 45,
   customerName: 'Race Tester',
@@ -26,6 +27,10 @@ const BASE = {
 
 describe('concurrency', () => {
   it('allows exactly one booking when two requests race for the same slot', async () => {
+    // Pre-book test_v2 and test_v3 so both requests are forced onto test_v1
+    await makeBooking('test_v2', 10);
+    await makeBooking('test_v3', 10);
+
     const results = await Promise.allSettled([scheduleBooking(BASE), scheduleBooking(BASE)]);
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled');
@@ -40,6 +45,10 @@ describe('concurrency', () => {
   }, 60000);
 
   it('allows exactly one booking when five requests race for the same slot', async () => {
+    // Pre-book test_v2 and test_v3 so all requests are forced onto test_v1
+    await makeBooking('test_v2', 10);
+    await makeBooking('test_v3', 10);
+
     const requests = Array.from({ length: 5 }, () => scheduleBooking(BASE));
     const results = await Promise.allSettled(requests);
 

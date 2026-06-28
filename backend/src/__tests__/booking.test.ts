@@ -1,4 +1,4 @@
-import { scheduleBooking, SlotUnavailableError, VehicleNotFoundError } from '../services/booking.service';
+import { scheduleBooking, SlotUnavailableError } from '../services/booking.service';
 import { cleanupTestData, makeBooking, makeDate, prisma, seedTestVehicles, TEST_VEHICLE_IDS } from './helpers';
 
 beforeAll(async () => {
@@ -16,7 +16,8 @@ afterEach(async () => {
 });
 
 const BASE = {
-  vehicleId: 'test_v1',
+  vehicleType: 'test_model',
+  location: 'test_city',
   startDateTime: makeDate(10),
   durationMins: 45,
   customerName: 'Jane Doe',
@@ -35,20 +36,24 @@ describe('booking — success', () => {
     const { bookingId } = await scheduleBooking(BASE);
     const saved = await prisma.booking.findUnique({ where: { id: bookingId } });
     expect(saved).not.toBeNull();
-    expect(saved?.vehicleId).toBe('test_v1');
+    expect(TEST_VEHICLE_IDS).toContain(saved?.vehicleId);
     expect(saved?.customerEmail).toBe('jane@doe.com');
   });
 });
 
 describe('booking — conflict rejection', () => {
-  it('throws SlotUnavailableError when slot overlaps existing booking', async () => {
+  it('throws SlotUnavailableError when all vehicles are booked at the requested slot', async () => {
     await makeBooking('test_v1', 10);
+    await makeBooking('test_v2', 10);
+    await makeBooking('test_v3', 10);
     await expect(scheduleBooking(BASE)).rejects.toThrow(SlotUnavailableError);
   });
 
-  it('throws SlotUnavailableError when slot is within buffer of existing booking', async () => {
+  it('throws SlotUnavailableError when slot is within buffer of all existing bookings', async () => {
     // Existing: 10:00–10:45. Buffer: 15 min. 10:50 start is within buffer.
     await makeBooking('test_v1', 10);
+    await makeBooking('test_v2', 10);
+    await makeBooking('test_v3', 10);
     const tooSoon = { ...BASE, startDateTime: new Date('2025-01-13T10:50:00Z') };
     await expect(scheduleBooking(tooSoon)).rejects.toThrow(SlotUnavailableError);
   });
@@ -62,8 +67,12 @@ describe('booking — conflict rejection', () => {
   });
 });
 
-describe('booking — vehicle not found', () => {
-  it('throws VehicleNotFoundError for unknown vehicleId', async () => {
-    await expect(scheduleBooking({ ...BASE, vehicleId: 'does_not_exist' })).rejects.toThrow(VehicleNotFoundError);
+describe('booking — no matching vehicle', () => {
+  it('throws SlotUnavailableError for unknown vehicleType', async () => {
+    await expect(scheduleBooking({ ...BASE, vehicleType: 'unknown_type' })).rejects.toThrow(SlotUnavailableError);
+  });
+
+  it('throws SlotUnavailableError for unknown location', async () => {
+    await expect(scheduleBooking({ ...BASE, location: 'unknown_city' })).rejects.toThrow(SlotUnavailableError);
   });
 });

@@ -73,7 +73,6 @@ export default function App({ vehicleType, location }: Props) {
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [unavailableAlert, setUnavailableAlert] = useState(false);
-  const [vehicleId, setVehicleId] = useState('');
   const [bookingId, setBookingId] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -98,19 +97,15 @@ export default function App({ vehicleType, location }: Props) {
     setUnavailableAlert(false);
     setStep('checking');
     try {
-      const res = await fetch(`${API}/availability`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location,
-          vehicleType,
-          startDateTime: new Date(fields.startDateTime).toISOString(),
-          durationMins: fields.durationMins,
-        }),
+      const params = new URLSearchParams({
+        location,
+        vehicleType,
+        startDateTime: new Date(fields.startDateTime).toISOString(),
+        durationMins: String(fields.durationMins),
       });
+      const res = await fetch(`${API}/availability?${params}`);
       const data = await res.json();
       if (data.available) {
-        setVehicleId(data.vehicleId);
         setStep('confirm');
       } else {
         setUnavailableAlert(true);
@@ -129,7 +124,8 @@ export default function App({ vehicleType, location }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vehicleId,
+          location,
+          vehicleType,
           startDateTime: new Date(fields.startDateTime).toISOString(),
           durationMins: fields.durationMins,
           customerName: fields.customerName,
@@ -156,7 +152,6 @@ export default function App({ vehicleType, location }: Props) {
     setStep('form');
     setFieldErrors({});
     setUnavailableAlert(false);
-    setVehicleId('');
     setBookingId('');
     setErrorMessage('');
   }
@@ -188,7 +183,6 @@ export default function App({ vehicleType, location }: Props) {
 
         {(step === 'confirm' || step === 'booking') && (
           <BookingConfirm
-            vehicleId={vehicleId}
             startDateTime={fields.startDateTime}
             durationMins={fields.durationMins}
             isBooking={step === 'booking'}

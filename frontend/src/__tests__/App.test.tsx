@@ -50,19 +50,18 @@ describe('App — availability flow', () => {
   it('shows confirm step when slot is available', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ available: true, vehicleId: 'tesla_1001' }),
+      json: async () => ({ available: true }),
     }));
     renderApp();
     await fillAndSubmitForm();
     await waitFor(() => expect(screen.getByTestId('btn-confirm')).toBeInTheDocument());
     expect(screen.getByText('Slot is available!')).toBeInTheDocument();
-    expect(screen.getByText(/tesla_1001/)).toBeInTheDocument();
   });
 
   it('shows unavailable alert and keeps form when slot is not available', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ available: false, vehicleId: null }),
+      json: async () => ({ available: false }),
     }));
     renderApp();
     await fillAndSubmitForm();
@@ -74,7 +73,7 @@ describe('App — availability flow', () => {
   it('dismisses the unavailable alert when × is clicked', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ available: false, vehicleId: null }),
+      json: async () => ({ available: false }),
     }));
     renderApp();
     await fillAndSubmitForm();
@@ -89,7 +88,7 @@ describe('App — booking flow', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true, vehicleId: 'tesla_1001' }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true }) })
         .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ bookingId: 'abc-123' }) }),
     );
     renderApp();
@@ -104,7 +103,7 @@ describe('App — booking flow', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true, vehicleId: 'tesla_1001' }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true }) })
         .mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({}) }),
     );
     renderApp();
@@ -119,7 +118,7 @@ describe('App — booking flow', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn()
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true, vehicleId: 'tesla_1001' }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ available: true }) })
         .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ bookingId: 'abc-123' }) }),
     );
     renderApp();

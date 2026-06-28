@@ -1,7 +1,6 @@
 import React from 'react';
 
 interface Props {
-  vehicleId: string;
   startDateTime: string;
   durationMins: number;
   isBooking: boolean;
@@ -9,11 +8,10 @@ interface Props {
   onBack: () => void;
 }
 
-export default function BookingConfirm({ vehicleId, startDateTime, durationMins, isBooking, onConfirm, onBack }: Props) {
+export default function BookingConfirm({ startDateTime, durationMins, isBooking, onConfirm, onBack }: Props) {
   return (
     <div>
       <p style={styles.successMsg}>Slot is available!</p>
-      <p style={styles.detail}>Vehicle: <strong>{vehicleId}</strong></p>
       <p style={styles.detail}>{new Date(startDateTime).toLocaleString()} · {durationMins} mins</p>
       <button style={styles.btn} onClick={onConfirm} disabled={isBooking} data-testid="btn-confirm">
         {isBooking ? 'Confirming…' : 'Confirm Booking'}

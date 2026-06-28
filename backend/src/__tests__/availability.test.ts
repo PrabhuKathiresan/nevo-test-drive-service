@@ -22,7 +22,6 @@ describe('availability — vehicle matching', () => {
   it('returns unavailable for unknown vehicle type', async () => {
     const result = await checkAvailability({ ...BASE, vehicleType: 'unknown_type' });
     expect(result.available).toBe(false);
-    expect(result.vehicleId).toBeNull();
   });
 
   it('returns unavailable for unknown location', async () => {
@@ -47,7 +46,6 @@ describe('availability — time rules', () => {
   it('returns available for a slot within operating hours', async () => {
     const result = await checkAvailability(BASE);
     expect(result.available).toBe(true);
-    expect(result.vehicleId).not.toBeNull();
   });
 });
 
