@@ -56,6 +56,18 @@ The only deliberate AP trade-off is the two-step flow itself (check then book) -
 
 ---
 
+## Vehicle Assignment - vehicleId in Booking Request
+
+**Decision:** The availability endpoint returns a `vehicleId` which the frontend passes back in the booking request, as specified in the assignment.
+
+**Trade-off:** This exposes internal vehicle inventory to the frontend and allows a client to bypass the availability endpoint entirely, booking any known `vehicleId` directly — circumventing the even distribution algorithm.
+
+**The production-correct approach** would be to remove `vehicleId` from both the availability response and the booking request. The booking endpoint would instead accept `vehicleType`, `location`, `startDateTime`, and `durationMins` alongside customer details, and pick the vehicle internally using the distribution algorithm inside the same transaction that creates the booking. This makes vehicle assignment entirely server-controlled — inventory is never exposed and distribution cannot be bypassed.
+
+The current implementation mitigates the correctness risk: the booking service re-validates all business rules inside the advisory lock transaction with fresh data, so no double-booking is possible regardless of how the `vehicleId` was obtained. Distribution bypass remains a theoretical concern at this scope.
+
+---
+
 ## Timezones - UTC Throughout
 
 **Decision:** All datetimes stored and transmitted as UTC. The frontend displays times in the user's local timezone via `toLocaleString()`.
