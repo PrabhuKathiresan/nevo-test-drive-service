@@ -44,10 +44,10 @@ done
 
 # ── Migrate & seed ────────────────────────────────────────────────────────────
 echo "Running migrations..."
-docker compose exec backend npx prisma migrate deploy
+docker compose exec backend npm run db:migrate
 
 echo "Seeding data..."
-docker compose exec backend npx ts-node prisma/seed.ts
+docker compose exec backend npm run db:seed
 
 echo ""
 echo "Nevo Test Drive Service is running"
