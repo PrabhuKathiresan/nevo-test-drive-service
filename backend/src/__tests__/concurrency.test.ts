@@ -58,4 +58,22 @@ describe('concurrency', () => {
     const bookings = await prisma.booking.findMany({ where: { vehicleId: 'test_v1' } });
     expect(bookings).toHaveLength(1);
   }, 60000);
+
+  it('allows concurrent bookings on the same vehicle when slots do not conflict', async () => {
+    // 10:00 and 14:00 on the same vehicle — no overlap, no buffer issue.
+    // The lock is scoped to vehicle + date so both should succeed concurrently.
+    const morning = { ...BASE, startDateTime: makeDate(10) };
+    const afternoon = { ...BASE, startDateTime: makeDate(14) };
+
+    const results = await Promise.allSettled([
+      scheduleBooking(morning),
+      scheduleBooking(afternoon),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    expect(fulfilled).toHaveLength(2);
+
+    const bookings = await prisma.booking.findMany({ where: { vehicleId: { in: TEST_VEHICLE_IDS } } });
+    expect(bookings).toHaveLength(2);
+  }, 60000);
 });

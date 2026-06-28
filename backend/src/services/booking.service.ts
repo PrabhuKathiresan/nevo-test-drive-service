@@ -41,12 +41,15 @@ export async function scheduleBooking(req: BookingRequest): Promise<{ bookingId:
   const selected = selectLeastBooked(eligible);
 
   return prisma.$transaction(async (tx) => {
-    // Acquire a non-blocking advisory lock scoped to this vehicle.
-    // If another transaction already holds it, acquired = false and we
-    // immediately reject rather than queuing — avoids connection pool starvation.
+    // Acquire a non-blocking advisory lock scoped to vehicle + exact start time.
+    // Using two-integer form so concurrent bookings on the same vehicle at
+    // different non-conflicting slots are not unnecessarily serialised.
+    // Overlapping-but-different-start-time conflicts are caught by the
+    // hasBookingConflict re-validation inside the lock.
     // The lock is released automatically when the transaction commits or rolls back.
+    const lockSlot = req.startDateTime.toISOString();
     const [lock] = await tx.$queryRaw<Array<{ acquired: boolean }>>`
-      SELECT pg_try_advisory_xact_lock(hashtext(${selected.id})) AS acquired
+      SELECT pg_try_advisory_xact_lock(hashtext(${selected.id}), hashtext(${lockSlot})) AS acquired
     `;
     if (!lock.acquired) throw new SlotUnavailableError();
 

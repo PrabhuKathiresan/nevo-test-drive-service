@@ -156,7 +156,7 @@ The booking endpoint handles this as follows:
 1. Read eligible vehicles for the requested type, location, and slot
 2. Select the least-booked vehicle (e.g. tesla_1001)
 3. Open a database transaction
-4. Call `pg_try_advisory_xact_lock(hashtext(vehicleId))` - acquires a non-blocking PostgreSQL advisory lock scoped to the selected vehicle
+4. Call `pg_try_advisory_xact_lock(hashtext(vehicleId), hashtext(startDateTime))` - acquires a non-blocking PostgreSQL advisory lock scoped to vehicle + exact start time. Two requests for the same vehicle at different non-conflicting slots are not serialised; two requests for the exact same slot are.
 5. If the lock is already held by another transaction: immediately return `409 SLOT_UNAVAILABLE` (no waiting)
 6. Re-run all availability checks inside the transaction with fresh data
 7. If still available: insert the booking and commit - lock releases automatically

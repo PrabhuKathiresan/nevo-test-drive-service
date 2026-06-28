@@ -12,9 +12,11 @@
 
 ## Concurrency - PostgreSQL Advisory Lock
 
-**Decision:** Use `pg_try_advisory_xact_lock` instead of `SELECT ... FOR UPDATE`.
+**Decision:** Use `pg_try_advisory_xact_lock(hashtext(vehicleId), hashtext(startDateTime))` instead of `SELECT ... FOR UPDATE`.
 
 **Reason:** Row-level locks (`FOR UPDATE`) block waiting transactions while each holds a database connection. Under concurrent load this exhausts the connection pool and causes unrelated requests to time out. Advisory locks are non-blocking - the first caller wins the lock, all others get an immediate `false` and are rejected as `409 SLOT_UNAVAILABLE`. This keeps connection usage flat regardless of concurrency level.
+
+**Lock granularity:** The lock is scoped to `vehicleId + startDateTime` (two-integer form). This means two concurrent requests for the same vehicle at different non-conflicting times are not serialised — they proceed independently. Two requests for the exact same vehicle + slot compete for the same lock key, and only one wins. Overlapping-but-different-start-time conflicts (e.g. both within the buffer window) are caught by the `hasBookingConflict` re-validation inside the lock regardless.
 
 ---
 

@@ -58,7 +58,7 @@ flowchart TD
 
     I --> I1
     I5 -->|No| J[Begin DB transaction]
-    J --> K[pg_try_advisory_xact_lock\nhashtext selectedVehicleId]
+    J --> K[pg_try_advisory_xact_lock\nhashtext vehicleId · hashtext startDateTime]
     K -->|acquired: false\nanother tx in progress| L[Rollback\n409 SLOT_UNAVAILABLE]
     K -->|acquired: true| M[Fetch vehicle + bookings\nfresh data inside lock]
     M --> N{isWithinOperatingHours?\nday + hours + same UTC day}
