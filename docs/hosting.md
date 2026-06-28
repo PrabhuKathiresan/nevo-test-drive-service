@@ -81,7 +81,7 @@ The advisory lock (`pg_try_advisory_xact_lock`) works correctly across multiple 
 |---|---|---|
 | `DATABASE_URL` | Backend task | Injected from Secrets Manager at task startup |
 | `NODE_ENV` | Backend task | Set in task definition (`production`) |
-| `VITE_API_TARGET` | Frontend build arg | Set to ALB backend URL at build time |
+| `VITE_API_TARGET` | Docker Compose only | Vite dev proxy target — not used in production builds; ALB routes `/api/*` to the backend directly |
 
 ---
 
