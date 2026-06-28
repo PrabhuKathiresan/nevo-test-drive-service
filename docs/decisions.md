@@ -62,15 +62,13 @@ The only deliberate AP trade-off is the two-step flow itself (check then book) -
 
 ---
 
-## Vehicle Assignment - vehicleId in Booking Request
+## Vehicle Assignment - Backend-Controlled
 
-**Decision:** The availability endpoint returns a `vehicleId` which the frontend passes back in the booking request, as specified in the assignment.
+**Decision:** The availability endpoint returns only `{ available: boolean }` — no vehicle ID. The booking endpoint accepts `vehicleType`, `location`, and slot details; the backend selects the vehicle internally using the distribution algorithm inside the same transaction that creates the booking.
 
-**Trade-off:** This exposes internal vehicle inventory to the frontend and allows a client to bypass the availability endpoint entirely, booking any known `vehicleId` directly - circumventing the even distribution algorithm.
+**Why:** Exposing `vehicleId` to the frontend would leak internal inventory details and allow a client to bypass the availability endpoint entirely — booking any known vehicle ID directly and circumventing the even distribution algorithm.
 
-**The production-correct approach** would be to remove `vehicleId` from both the availability response and the booking request. The booking endpoint would instead accept `vehicleType`, `location`, `startDateTime`, and `durationMins` alongside customer details, and pick the vehicle internally using the distribution algorithm inside the same transaction that creates the booking. This makes vehicle assignment entirely server-controlled - inventory is never exposed and distribution cannot be bypassed.
-
-The current implementation mitigates the correctness risk: the booking service re-validates all business rules inside the advisory lock transaction with fresh data, so no double-booking is possible regardless of how the `vehicleId` was obtained. Distribution bypass remains a theoretical concern at this scope.
+**How it works:** On a booking request, the service reads eligible vehicles, selects the least-booked one, acquires an advisory lock on it, re-validates all business rules with fresh data inside the lock, then inserts the booking. Vehicle assignment and booking creation are atomic — the frontend never sees or controls which vehicle it gets.
 
 ---
 

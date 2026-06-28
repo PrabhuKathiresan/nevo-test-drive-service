@@ -2,61 +2,57 @@
 
 Base URL: `http://localhost:3000/api/v1`
 
-All requests and responses use `Content-Type: application/json`. Datetimes are ISO 8601 UTC strings.
+Booking requests and responses use `Content-Type: application/json`. Datetimes are ISO 8601 UTC strings.
 
 ---
 
-## POST /availability
+## GET /availability
 
-Check whether a vehicle of the given type is available at the given location and time slot. Returns the recommended vehicle to book (pre-selected via the even distribution algorithm).
+Check whether a vehicle of the given type is available at the given location and time slot. Vehicle selection and assignment is handled entirely by the backend — no vehicle ID is exposed to the client.
 
 ### Request
 
-```json
-{
-  "location": "dublin",
-  "vehicleType": "tesla_model3",
-  "startDateTime": "2023-10-18T10:00:00Z",
-  "durationMins": 45
-}
+All parameters are passed as query string values.
+
+```
+GET /api/v1/availability?vehicleType=tesla_model3&location=dublin&startDateTime=2023-10-18T10%3A00%3A00Z&durationMins=45
 ```
 
-| Field           | Type     | Required | Description                                      |
+| Parameter       | Type     | Required | Description                                      |
 |----------------|----------|----------|--------------------------------------------------|
 | `location`      | `string` | Yes      | Location slug (e.g. `dublin`, `cork`)            |
 | `vehicleType`   | `string` | Yes      | Vehicle type slug (e.g. `tesla_model3`)          |
-| `startDateTime` | `string` | Yes      | ISO 8601 UTC datetime for the start of the slot  |
+| `startDateTime` | `string` | Yes      | ISO 8601 UTC datetime — must be URL-encoded      |
 | `durationMins`  | `number` | Yes      | Duration of the test drive in minutes            |
 
-### Response - 200 OK (available)
+### Response — 200 OK (available)
 
 ```json
 {
-  "available": true,
-  "vehicleId": "tesla_1001"
+  "available": true
 }
 ```
 
-### Response - 200 OK (unavailable)
+### Response — 200 OK (unavailable)
 
 ```json
 {
-  "available": false,
-  "vehicleId": null
+  "available": false
 }
 ```
 
-| Field       | Type              | Description                                                            |
-|------------|-------------------|------------------------------------------------------------------------|
-| `available` | `boolean`         | Whether a vehicle is available for the requested slot                  |
-| `vehicleId` | `string \| null`  | ID of the recommended vehicle selected by the distribution algorithm, or `null` if unavailable |
+| Field       | Type      | Description                                           |
+|------------|-----------|-------------------------------------------------------|
+| `available` | `boolean` | Whether a vehicle is available for the requested slot |
+
+Vehicle identity is intentionally not returned. The backend selects the vehicle internally at booking time using the even distribution algorithm, preventing inventory exposure and distribution bypass.
 
 ### Error Responses
 
-| Status | Code                  | Description                                      |
-|--------|-----------------------|--------------------------------------------------|
-| `400`  | `VALIDATION_ERROR`    | Missing or invalid request fields                |
-| `500`  | `INTERNAL_ERROR`      | Unexpected server error                          |
+| Status | Code               | Description                      |
+|--------|--------------------|----------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing or invalid query params  |
+| `500`  | `INTERNAL_ERROR`   | Unexpected server error          |
 
 ```json
 {
@@ -69,7 +65,7 @@ Check whether a vehicle of the given type is available at the given location and
 
 ### Availability Rules
 
-A vehicle is returned only when **all** of the following conditions are met:
+A slot is reported available only when **all** of the following conditions are met for at least one vehicle of the requested type and location:
 
 1. `vehicleType` matches the vehicle's configured type
 2. `location` matches the vehicle's configured location
@@ -82,13 +78,14 @@ A vehicle is returned only when **all** of the following conditions are met:
 
 ## POST /bookings
 
-Reserve a vehicle slot for a customer. Availability is re-validated inside a database transaction to prevent race conditions.
+Reserve a vehicle slot for a customer. The backend selects the best available vehicle using the even distribution algorithm and re-validates all availability rules inside a database transaction to prevent race conditions.
 
 ### Request
 
 ```json
 {
-  "vehicleId": "tesla_1001",
+  "location": "dublin",
+  "vehicleType": "tesla_model3",
   "startDateTime": "2023-10-18T10:00:00Z",
   "durationMins": 45,
   "customerName": "John Smith",
@@ -99,14 +96,15 @@ Reserve a vehicle slot for a customer. Availability is re-validated inside a dat
 
 | Field           | Type     | Required | Description                                     |
 |----------------|----------|----------|-------------------------------------------------|
-| `vehicleId`     | `string` | Yes      | ID of the vehicle to book                       |
+| `location`      | `string` | Yes      | Location slug — must match the availability check |
+| `vehicleType`   | `string` | Yes      | Vehicle type slug — must match the availability check |
 | `startDateTime` | `string` | Yes      | ISO 8601 UTC datetime for the start of the slot |
 | `durationMins`  | `number` | Yes      | Duration of the test drive in minutes           |
 | `customerName`  | `string` | Yes      | Full name of the customer                       |
 | `customerEmail` | `string` | Yes      | Customer email address                          |
-| `customerPhone` | `string` | Yes      | Customer phone number (E.164 format)            |
+| `customerPhone` | `string` | Yes      | Customer phone number                           |
 
-### Response - 201 Created
+### Response — 201 Created
 
 ```json
 {
@@ -114,18 +112,17 @@ Reserve a vehicle slot for a customer. Availability is re-validated inside a dat
 }
 ```
 
-| Field       | Type     | Description                    |
-|------------|----------|--------------------------------|
-| `bookingId` | `string` | UUID of the created booking    |
+| Field       | Type     | Description                 |
+|------------|----------|-----------------------------|
+| `bookingId` | `string` | UUID of the created booking |
 
 ### Error Responses
 
-| Status | Code                  | Description                                                   |
-|--------|-----------------------|---------------------------------------------------------------|
-| `400`  | `VALIDATION_ERROR`    | Missing or invalid request fields                             |
-| `409`  | `SLOT_UNAVAILABLE`    | Slot is no longer available (taken by a concurrent booking)   |
-| `404`  | `VEHICLE_NOT_FOUND`   | No vehicle exists with the given `vehicleId`                  |
-| `500`  | `INTERNAL_ERROR`      | Unexpected server error                                       |
+| Status | Code               | Description                                                   |
+|--------|--------------------|---------------------------------------------------------------|
+| `400`  | `VALIDATION_ERROR` | Missing or invalid request fields                             |
+| `409`  | `SLOT_UNAVAILABLE` | No vehicle available for the slot (taken or rules not met)    |
+| `500`  | `INTERNAL_ERROR`   | Unexpected server error                                       |
 
 ```json
 {
@@ -172,7 +169,7 @@ Reserve a vehicle slot for a customer. Availability is re-validated inside a dat
 
 ## Booking Constraints
 
-- `durationMins` must be a positive integer
+- `durationMins` must be a positive integer, maximum 480 minutes
 - `startDateTime` must be in the future and no more than 14 days ahead
 - `customerEmail` must be a valid email address
 - `customerPhone` must be a non-empty string

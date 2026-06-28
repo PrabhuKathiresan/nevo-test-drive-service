@@ -50,7 +50,8 @@ DATABASE_URL=postgresql://nevo:nevo@localhost:5432/nevo_test_drive
 
 ```bash
 npx prisma migrate deploy
-npx ts-node prisma/seed.ts
+npm run build
+npm run db:seed
 npm run dev
 ```
 

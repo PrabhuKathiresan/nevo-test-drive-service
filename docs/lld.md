@@ -4,11 +4,11 @@ Detailed request flow for each endpoint. See [High-Level Design](./hld.md) for a
 
 ---
 
-## POST /api/v1/availability
+## GET /api/v1/availability
 
 ```mermaid
 flowchart TD
-    A([POST /api/v1/availability]) --> B{Zod validation\ntype · location · startDateTime\ndurationMins · future · ≤14 days}
+    A([GET /api/v1/availability]) --> B{Zod validation\ntype · location · startDateTime\ndurationMins · future · ≤14 days}
     B -->|Invalid| C[400 VALIDATION_ERROR\nfield: message]
     B -->|Valid| D[Compute endDateTime\nstart + durationMins]
     D --> E["Fetch vehicles matching type + location\n- bookings filtered to conflict window ±60min\n- _count.bookings scoped to today only"]
@@ -27,21 +27,8 @@ flowchart TD
 
     F --> SlotRules
     SlotRules --> N{Any eligible\nvehicles?}
-    N -->|No| O[Return\navailable: false · vehicleId: null]
-    N -->|Yes| P["selectLeastBooked - vehicles.reduce"]
-
-    subgraph LeastBooked["selectLeastBooked()"]
-        P1{v._count.bookings\n< best._count.bookings?} -->|Yes| P2[v becomes best]
-        P1 -->|No| P3{Same count\nand v.id < best.id?}
-        P3 -->|Yes| P2
-        P3 -->|No| P4[Keep best]
-        P2 --> P5{More\nvehicles?}
-        P4 --> P5
-        P5 -->|Yes| P1
-    end
-
-    P --> P1
-    P5 -->|No| Q[Return\navailable: true · vehicleId: best.id]
+    N -->|No| O[Return\navailable: false]
+    N -->|Yes| Q[Return\navailable: true]
 ```
 
 ---
@@ -50,21 +37,37 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([POST /api/v1/bookings]) --> B{Zod validation\nvehicleId · startDateTime · durationMins\ncustomerName · email · phone}
+    A([POST /api/v1/bookings]) --> B{Zod validation\nlocation · vehicleType · startDateTime\ndurationMins · customerName · email · phone}
     B -->|Invalid| C[400 VALIDATION_ERROR\nfield: message]
     B -->|Valid| D[Compute endDateTime\nstart + durationMins]
-    D --> E[Begin DB transaction]
-    E --> F[pg_try_advisory_xact_lock\nhashtext vehicleId]
-    F -->|acquired: false\nanother tx in progress| G[Rollback\n409 SLOT_UNAVAILABLE]
-    F -->|acquired: true| H[Fetch vehicle + bookings\nFOR SHARE of lock]
-    H -->|Not found| I[Rollback\n404 VEHICLE_NOT_FOUND]
-    H -->|Found| J{isWithinOperatingHours?\nday + hours + same UTC day}
-    J -->|No| K[Rollback\n409 SLOT_UNAVAILABLE]
-    J -->|Yes| L{hasBookingConflict?\noverlap or buffer violation}
-    L -->|Yes| M[Rollback\n409 SLOT_UNAVAILABLE]
-    L -->|No| N[INSERT booking record\nvehicleId · start · end · customer]
-    N --> O[Commit\nadvisory lock released automatically]
-    O --> P[201 bookingId]
+    D --> E["Fetch vehicles matching type + location\n- bookings filtered to conflict window ±60min\n- _count.bookings scoped to today only"]
+    E --> F["Filter eligible vehicles\nvehicles.filter - isVehicleAvailable"]
+    F --> G{Any eligible\nvehicles?}
+    G -->|No| H[409 SLOT_UNAVAILABLE]
+    G -->|Yes| I["selectLeastBooked - vehicles.reduce\nfewest bookings today · tie-break by id asc"]
+
+    subgraph LeastBooked["selectLeastBooked()"]
+        I1{v._count.bookings\n< best._count.bookings?} -->|Yes| I2[v becomes best]
+        I1 -->|No| I3{Same count\nand v.id < best.id?}
+        I3 -->|Yes| I2
+        I3 -->|No| I4[Keep best]
+        I2 --> I5{More\nvehicles?}
+        I4 --> I5
+        I5 -->|Yes| I1
+    end
+
+    I --> I1
+    I5 -->|No| J[Begin DB transaction]
+    J --> K[pg_try_advisory_xact_lock\nhashtext selectedVehicleId]
+    K -->|acquired: false\nanother tx in progress| L[Rollback\n409 SLOT_UNAVAILABLE]
+    K -->|acquired: true| M[Fetch vehicle + bookings\nfresh data inside lock]
+    M --> N{isWithinOperatingHours?\nday + hours + same UTC day}
+    N -->|No| O[Rollback\n409 SLOT_UNAVAILABLE]
+    N -->|Yes| P{hasBookingConflict?\noverlap or buffer violation}
+    P -->|Yes| Q[Rollback\n409 SLOT_UNAVAILABLE]
+    P -->|No| R[INSERT booking record\nvehicleId · start · end · customer]
+    R --> S[Commit\nadvisory lock released automatically]
+    S --> T[201 bookingId]
 ```
 
 ---
@@ -75,6 +78,6 @@ Both flows share `src/utils/slot-rules.ts`. The availability endpoint uses it to
 
 ```mermaid
 flowchart LR
-    A["POST /availability\nAvailability Service"] --> SR["slot-rules.ts\nisWithinOperatingHours\nhasBookingConflict\nisVehicleAvailable"]
+    A["GET /availability\nAvailability Service"] --> SR["slot-rules.ts\nisWithinOperatingHours\nhasBookingConflict\nisVehicleAvailable"]
     B["POST /bookings\nBooking Service"] --> SR
 ```

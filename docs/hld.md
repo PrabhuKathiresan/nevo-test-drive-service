@@ -33,7 +33,7 @@ graph TB
 
     DB[("PostgreSQL\nvehicles · bookings")]
 
-    Browser -->|"POST /api/v1/availability"| AvailCtrl
+    Browser -->|"GET /api/v1/availability"| AvailCtrl
     Browser -->|"POST /api/v1/bookings"| BookCtrl
     VehicleRepo -->|Prisma ORM| DB
     BookingRepo -->|Prisma ORM| DB
@@ -87,11 +87,12 @@ A document store (MongoDB, DynamoDB) would require application-level locking to 
 
 ### Backend owns all availability and assignment logic
 
-The frontend never decides which vehicle to book. It receives a `vehicleId` from the availability endpoint and passes it back at booking time. This means:
+The frontend never sees a vehicle ID. The availability endpoint returns only `{ available: boolean }`. When the customer confirms, the booking endpoint accepts `vehicleType`, `location`, and slot details — the backend selects the vehicle internally using the distribution algorithm inside the same transaction that creates the booking. This means:
 
 - Business rules live in one place
-- The distribution algorithm is never bypassed
-- The frontend cannot construct a booking for a vehicle that wasn't returned by the algorithm
+- Vehicle inventory is never exposed to the client
+- Distribution cannot be bypassed by sending an arbitrary vehicle ID
+- Vehicle assignment and booking creation are atomic
 
 ### Modular monolith over microservices
 
@@ -118,7 +119,7 @@ Overlap check uses half-open intervals: `[start, end)`. The buffer check extends
 
 ## Even Distribution Algorithm
 
-When multiple vehicles satisfy the availability rules, the system picks the one with the **fewest total bookings** (all-time). Ties are broken by `vehicle.id` ascending, making the selection deterministic.
+When multiple vehicles satisfy the availability rules, the system picks the one with the **fewest bookings today**. Ties are broken by `vehicle.id` ascending, making the selection deterministic.
 
 ```
 Eligible vehicles (type + location + slot available):
@@ -144,20 +145,22 @@ A random assignment would fail to converge on even distribution. A round-robin w
 The availability response is **advisory only**. A slot that appears available at check time may be taken before the booking request arrives. To prevent double-booking under concurrent load:
 
 ```
-Thread A: POST /availability  →  available: true, vehicleId: tesla_1001
-Thread B: POST /availability  →  available: true, vehicleId: tesla_1001
+Thread A: GET /availability  →  available: true
+Thread B: GET /availability  →  available: true
 Thread A: POST /bookings       ┐
 Thread B: POST /bookings       ┘ (concurrent)
 ```
 
 The booking endpoint handles this as follows:
 
-1. Open a database transaction
-2. Call `pg_try_advisory_xact_lock(hashtext(vehicleId))` - acquires a non-blocking PostgreSQL advisory lock scoped to the vehicle
-3. If the lock is already held by another transaction: immediately return `409 SLOT_UNAVAILABLE` (no waiting)
-4. Re-run all availability checks inside the transaction with fresh data
-5. If still available: insert the booking and commit - lock releases automatically
-6. If no longer available: roll back and return `409 SLOT_UNAVAILABLE`
+1. Read eligible vehicles for the requested type, location, and slot
+2. Select the least-booked vehicle (e.g. tesla_1001)
+3. Open a database transaction
+4. Call `pg_try_advisory_xact_lock(hashtext(vehicleId))` - acquires a non-blocking PostgreSQL advisory lock scoped to the selected vehicle
+5. If the lock is already held by another transaction: immediately return `409 SLOT_UNAVAILABLE` (no waiting)
+6. Re-run all availability checks inside the transaction with fresh data
+7. If still available: insert the booking and commit - lock releases automatically
+8. If no longer available: roll back and return `409 SLOT_UNAVAILABLE`
 
 **Why advisory lock over `SELECT FOR UPDATE`:**
 
@@ -220,7 +223,7 @@ Tests focus on correctness of the critical path, not coverage breadth.
 |-----------------------|-------------------------------------------------------------------------|
 | **Form rendering**     | All fields render correctly; checking state disables the submit button  |
 | **Validation**         | Errors shown on empty submit; errors clear on field change              |
-| **Available flow**     | Available response → confirm step shows vehicle and slot details        |
+| **Available flow**     | Available response → confirm step shows slot details                    |
 | **Unavailable flow**   | Unavailable response → alert shown, form stays in place                 |
 | **Alert dismiss**      | Clicking × removes the unavailable alert                                |
 | **Booking success**    | Confirming → success state shows booking ID                             |
@@ -250,7 +253,7 @@ See [Local Setup Guide](./local-setup.md) for full instructions.
 | **Event-driven architecture** | Publish `BookingCreated` events for analytics, auditing, notifications   |
 | **Availability caching**     | Cache availability responses in Redis with short TTL to reduce DB load    |
 | **Distributed locking**      | Redis-based lock for multi-region deployments where DB locking is insufficient |
-| **Observability**            | Structured logging, distributed tracing, metrics + alerting dashboards    |
+| **Distributed tracing**      | Correlate requests across services; add trace IDs to pino log lines       |
 | **Pagination on bookings**   | As reservation history grows, list endpoints will need cursor pagination  |
 
 ---
