@@ -3,6 +3,8 @@ dotenv.config();
 
 import express from 'express';
 import cors from 'cors';
+import pinoHttp from 'pino-http';
+import logger from './lib/logger';
 import { availabilityController } from './controllers/availability.controller';
 import { bookingController } from './controllers/booking.controller';
 
@@ -11,6 +13,7 @@ const PORT = process.env.PORT ?? 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(pinoHttp({ logger }));
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -22,8 +25,8 @@ app.use((_req: express.Request, res: express.Response) => {
 });
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
+  logger.error(err, 'Unhandled error');
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Unexpected error' } });
 });
 
-app.listen(PORT, () => console.log(`API listening on port ${PORT}`));
+app.listen(PORT, () => logger.info(`API listening on port ${PORT}`));
